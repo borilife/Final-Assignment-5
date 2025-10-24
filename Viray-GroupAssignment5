@@ -1,0 +1,320 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <random>
+#include <sstream>
+#include <unordered_set>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+#include <cmath>
+
+// ##################################################################
+// ##                          Functions                           ##
+// ## Below are the functions required as per signature assignment ##
+// ##                                                              ##
+// ##################################################################
+
+
+bool binary_search_recursive(int* values, int key, int start, int end) {
+    if (!values || start > end) return false;      // Checks if array exists and search range is not empty i.e finds a key.  
+    int mid = start + (end - start) / 2;           // Variable for midpoint. Returns values as determined by conditions
+    if (values[mid] == key) return true;
+    if (values[mid] > key)
+        return binary_search_recursive(values, key, start, mid - 1);
+    return binary_search_recursive(values, key, mid + 1, end);
+}
+
+// Helper function for binary_search_recursive 
+bool binary_search(int* values, int key, int size) {
+    if (!values || size <= 0) return false;
+    return binary_search_recursive(values, key, 0, size - 1);   // Basis for the initial search range used by binary_search_recursive
+}
+
+// Sorting function. 
+void selection_sort(int* values, int size) {
+    if (!values || size <= 1) return;
+    for (int i = 0; i < size - 1; ++i) {                  // Initiates position of array by finding smallest value
+        int smallest = i;                                   // Smallest value stored as [i]
+        for (int j = i + 1; j < size; ++j)                // Scans rest of array 
+            if (values[j] < values[smallest]) smallest = j;   // [j] will replace variable holding [i] if conditions are met
+        if (smallest != i) std::swap(values[i], values[smallest]);
+    }
+}
+
+// #####################################################
+// ##        Functions - additional functions         ##
+// ##           Additional functions needed           ##
+// ##                                                 ## 
+// #####################################################
+
+
+void writeBinary(std::string filename, int* values, int length) { 
+    std::ofstream out(filename, std::ios::binary); // creates and writes a file in binary
+    if (!out) { // error-check
+        std::cerr << "Sorry, could not open: " << filename << ". No writing initiated!\n";
+        return;
+    }
+    out.write(reinterpret_cast<const char*>(values),  // writes the pointed arrays memory into bytes 
+        static_cast<std::streamsize>(length) * sizeof(int)); // multiply streamsize length by the size of int (4 bytes)
+}
+
+void createBinaryFile(std::string filename) { 
+    constexpr int length = 200; // Creates the binary file containing 200 integers
+    std::vector<int> lim(length); //  Creates the vector 'lim' that holds 200 integers
+
+    std::random_device piCo; 
+    std::mt19937 gen(piCo()); // Mersenne Twister seed generator that uses the random seed 'piCo'
+    std::uniform_int_distribution<int> dist(0, 999); // distribution of integers ranging between 0 and 999
+
+    for (int i = 0; i < length; ++i) lim[i] = dist(gen);
+
+    writeBinary(filename, lim.data(), length); // writes 200 integers in binary to 'filename'
+}
+
+// #####################################################
+// ##              Base Class: Binary reader          ## 
+// #####################################################
+class BinaryReader {
+private:
+    int* inD = nullptr; // points to array inD once memory is allocated. 
+    int mass = 0; 
+
+public:
+    BinaryReader(std::string filename) { readValues(filename); } //opens and reads binary file 
+    ~BinaryReader() { delete[] inD; } // frees the allocated array 
+
+    int* getValues() { return inD; }
+    int getSize() { return mass; }
+
+    void readValues(std::string filename) { // reset the binaryreader when called
+        delete[] inD;
+        inD = nullptr;
+        mass = 0;
+
+        std::ifstream in(filename, std::ios::binary);
+        if (!in) {
+            std::cerr << "Error opening binary file: " << filename << "\n";
+            return;
+        }
+
+        in.seekg(0, std::ios::end);
+        std::streamsize bytes = in.tellg();
+        in.seekg(0, std::ios::beg); // scans and reports number of bytes in the file 
+
+        if (bytes <= 0 || bytes % sizeof(int) != 0) {
+            std::cerr << "Invalid file: " << filename << "\n";
+            return; // validates if binary file is valid
+        }
+
+        mass = static_cast<int>(bytes / sizeof(int)); // defines mass. Takes bytes determined by tellg() and divides by size of int
+        inD = new int[mass]; // allocate memory to store integers of mass
+        in.read(reinterpret_cast<char*>(inD), bytes);
+    }
+};
+
+// #####################################################
+// ##              Base Class: Analyzer               ## 
+// #####################################################
+class Analyzer {
+protected:
+    int* values = nullptr;
+    int size = 0;
+
+public:
+    Analyzer(int* vals, int sz) : values(vals), size(sz) {}
+    ~Analyzer() { delete[] values; }
+
+    int* cloneValues(int* src, int n) {
+        if (!src || n <= 0) return nullptr;
+        int* dst = new int[n];
+        std::copy(src, src + n, dst);
+        return dst; // creates a clone of integer array and returns pointer to 'dst'
+    }
+
+    virtual std::string analyze() = 0;
+};
+
+// #####################################################
+// ##        Derived Class: DuplicatesAnalyser        ##
+// #####################################################
+class DuplicatesAnalyser : public Analyzer {
+public:
+    DuplicatesAnalyser(int* vals, int sz) : Analyzer(vals, sz) {}
+
+    std::string analyze() override {
+        if (!values || size <= 0) return "There were 0 duplicated values"; // exit if no valid data present
+
+        int* copy = cloneValues(values, size); // integer array 'copy' creates copy of dataset defined in base class 'analyzer'
+        selection_sort(copy, size); // sorts copied array in ascending order 
+
+        int count = 0;
+        for (int i = 0; i < size;) {
+            int j = i + 1;
+            while (j < size && copy[j] == copy[i]) ++j;
+            if (j - i >= 2) ++count;
+            i = j; // counts duplicates 
+        }
+        delete[] copy;
+
+        std::ostringstream out;
+        out << "There were " << count << " duplicated values\n";
+        return out.str();
+    }
+};
+
+// #####################################################
+// ##          Derived Class: MissingAnalyser         ##
+// #####################################################
+class MissingAnalyser : public Analyzer {
+public:
+    MissingAnalyser(int* vals, int sz) : Analyzer(vals, sz) {}  
+
+    std::string analyze() override {
+        if (!values || size <= 0) return "There were 1000 missing values";
+
+        std::unordered_set<int> present; 
+        for (int i = 0; i < size; ++i)
+            if (values[i] >= 0 && values[i] <= 999) present.insert(values[i]); // create unordered_set type integer and store values
+
+        int missing = 1000 - static_cast<int>(present.size()); // calculate missing values by subtracting present values from total 
+        std::ostringstream out;
+        out << "There were " << missing << " missing values\n"; 
+        return out.str();
+    }
+};
+
+// #####################################################
+// ##           Derived Class:SearchAnalyzer          ##
+// #####################################################
+class SearchAnalyzer : public Analyzer {
+public:
+    SearchAnalyzer(int* vals, int sz) : Analyzer(vals, sz) {}
+
+    std::string analyze() override {
+        if (!values || size <= 0) return "There were 0 out of 100 random values found";
+        selection_sort(values, size);  // overrides base class
+
+        std::random_device piCo;
+        std::mt19937 gen(piCo());
+        std::uniform_int_distribution<int> dist(0, 999); // generates random seed data, using mersenne Twister
+
+        int hits = 0;
+        for (int i = 0; i < 100; ++i) {
+            int target = dist(gen);
+            if (binary_search(values, target, size)) ++hits; // finds random numbers present out of 100 attempts 
+        }
+
+        std::ostringstream out;
+        out << "There were " << hits << " out of 100 random values found";
+        return out.str();
+    }
+};
+
+// #####################################################
+// ##        Derived Class: StatisticsAnalyser        ##
+// #####################################################
+class StatisticsAnalyser : public Analyzer {
+public:
+    StatisticsAnalyser(int* vals, int sz) : Analyzer(vals, sz) {}
+
+    std::string analyze() override {
+        if (!values || size <= 0)
+            return "The minimum value is N/A\nThe maximum value is N/A\nThe mean value is N/A\nThe median value is N/A\nThe mode value is N/A";
+
+        long long sum = 0;
+        for (int i = 0; i < size; ++i) sum += values[i];
+        double mean = static_cast<double>(sum) / size; // converts sum of all integers' values to double and divide by size to get the mean
+
+        int* copy = cloneValues(values, size);
+        selection_sort(copy, size);
+        int minVal = copy[0], maxVal = copy[size - 1]; // 
+
+        double median;
+        if (size % 2 == 0)
+            median = (copy[size / 2 - 1] + copy[size / 2]) / 2.0; // if even, take average of two middle numbers 
+        else
+            median = copy[size / 2]; // if odd, take the middle
+
+        int mode = copy[0], modeCount = 1, cur = copy[0], curCount = 1;
+        for (int i = 1; i < size; ++i) {
+            if (copy[i] == cur)
+                ++curCount;  // scans sorted listed and counts the amount of times a number repeats 
+            else {
+                if (curCount > modeCount) { 
+                    modeCount = curCount; // if current count is higher, modeCount is replaced with new value from curCount
+                    mode = cur; // mode replaced with value from cur
+                }
+                cur = copy[i];
+                curCount = 1; // reset cur and the curCount following the else if statement
+            }  
+        }
+        if (curCount > modeCount) { 
+            modeCount = curCount; 
+            mode = cur;
+        } // catches most frequent number at the end of the array 
+
+        delete[] copy;
+
+        std::ostringstream out;
+        out << "The minimum value is " << minVal << "\n\n";
+        out << "The maximum value is " << maxVal << "\n\n";
+        out << "The mean value is " << std::fixed << std::setprecision(6) << mean << "\n\n";
+        if (std::fabs(median - std::round(median)) < 1e-9)
+            out << "The median value is " << static_cast<int>(std::round(median)) << "\n\n";
+        else
+            out << "The median value is " << median << "\n\n";
+        out << "The mode value is " << mode << " which occurred " << modeCount << " times";
+        return out.str();
+    }
+};
+
+// #####################################################
+// ##                      main()                     ##
+// #####################################################
+int main() {
+    const std::string fname = "data.bin"; // the filename
+
+    std::ifstream chk(fname, std::ios::binary); 
+    bool needCreate = !chk.good(); 
+    if (!needCreate) {
+        chk.seekg(0, std::ios::end);
+        needCreate = (chk.tellg() <= 0); // checks and determines if file exists or needs to be created
+    }
+    if (needCreate) createBinaryFile(fname); // creates file if needed
+
+    BinaryReader reader(fname); // users binaryreader class to read file
+    if (!reader.getValues() || reader.getSize() <= 0) {
+        std::cerr << "No data loaded.\n";
+        return 1; 
+    } // error if it fails to read file
+
+    int n = reader.getSize();
+    int* src = reader.getValues(); // retrieves data needed for derived classes 
+
+    auto copyArr = [&](int count) { // lambda function to allow use of src 
+        int* a = new int[count];
+        std::copy(src, src + count, a);
+        return a;
+        }; // copies from src to new array a. return to a
+
+    {
+        StatisticsAnalyser stats(copyArr(n), n); // create object called stats based off its class. Use lambda function for fresh copy of array
+        std::cout << stats.analyze() << "\n"; // calls and outputs analyze() function its derived class
+    }
+    {
+        DuplicatesAnalyser dup(copyArr(n), n); 
+        std::cout << "\n" << dup.analyze() << "\n";
+    }
+    {
+        MissingAnalyser miss(copyArr(n), n);
+        std::cout << miss.analyze() << "\n";
+    }
+    {
+        SearchAnalyzer search(copyArr(n), n);
+        std::cout << search.analyze() << "\n";
+    }
+
+    return 0;
+}
+
