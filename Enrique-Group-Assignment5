@@ -1,0 +1,258 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+using namespace std;
+
+// =====================================================
+// FUNCTION DECLARATIONS
+// =====================================================
+bool binary_search_recursive(int* values, int key, int start, int end);
+bool binary_search(int* values, int key, int size);
+void selection_sort(int* values, int size);
+void createBinaryFile(string filename);
+void writeBinary(string filename, int* values, int length);
+
+// =====================================================
+// CLASS DECLARATIONS
+// =====================================================
+class BinaryReader {
+private:
+    int* values;
+    int size;
+
+public:
+    BinaryReader(string filename) {
+        readValues(filename);
+    }
+
+    ~BinaryReader() {
+        delete[] values;
+    }
+
+    int* getValues() {
+        return values;
+    }
+
+    int getSize() {
+        return size;
+    }
+
+    void readValues(string filename) {
+        ifstream fin(filename.c_str(), ios::binary);
+        if (!fin) {
+            cout << "File not found. Creating new data file..." << endl;
+            createBinaryFile(filename);
+            fin.open(filename.c_str(), ios::binary);
+        }
+
+        fin.read((char*)&size, sizeof(size));
+        values = new int[size];
+        fin.read((char*)values, sizeof(int) * size);
+        fin.close();
+    }
+};
+
+// =====================================================
+// BASE CLASS: Analyzer
+// =====================================================
+class Analyzer {
+protected:
+    int* values;
+    int size;
+
+public:
+    Analyzer(int* v, int s) {
+        size = s;
+        values = new int[size];
+        for (int i = 0; i < size; i++)
+            values[i] = v[i];
+    }
+
+    virtual ~Analyzer() {
+        delete[] values;
+    }
+
+    int* cloneValues(int* v, int s) {
+        int* copy = new int[s];
+        for (int i = 0; i < s; i++)
+            copy[i] = v[i];
+        return copy;
+    }
+
+    virtual string analyze() = 0;
+};
+
+// =====================================================
+// DuplicatesAnalyzer CLASS
+// =====================================================
+class DuplicatesAnalyser : public Analyzer {
+public:
+    DuplicatesAnalyser(int* v, int s) : Analyzer(v, s) {}
+
+    string analyze() override {
+        selection_sort(values, size);
+        int duplicates = 0;
+        for (int i = 1; i < size; i++) {
+            if (values[i] == values[i - 1])
+                duplicates++;
+        }
+        return "Duplicate count: " + to_string(duplicates);
+    }
+};
+
+// =====================================================
+// MissingAnalyzer CLASS
+// =====================================================
+class MissingAnalyser : public Analyzer {
+public:
+    MissingAnalyser(int* v, int s) : Analyzer(v, s) {}
+
+    string analyze() override {
+        selection_sort(values, size);
+        int missing = 0;
+        for (int i = 1; i < size; i++) {
+            if (values[i] - values[i - 1] > 1)
+                missing += (values[i] - values[i - 1] - 1);
+        }
+        return "Missing numbers between min and max: " + to_string(missing);
+    }
+};
+
+// =====================================================
+// SearchAnalyzer CLASS
+// =====================================================
+class SearchAnalyser : public Analyzer {
+public:
+    SearchAnalyser(int* v, int s) : Analyzer(v, s) {
+        selection_sort(values, size);
+    }
+
+    string analyze() override {
+        srand(time(0));
+        int foundCount = 0;
+        for (int i = 0; i < 100; i++) {
+            int randomValue = rand() % 1000;
+            if (binary_search(values, randomValue, size))
+                foundCount++;
+        }
+        return "Random search: " + to_string(foundCount) + " values found in dataset.";
+    }
+};
+
+// =====================================================
+// StatisticsAnalyzer CLASS
+// =====================================================
+class StatisticsAnalyser : public Analyzer {
+public:
+    StatisticsAnalyser(int* v, int s) : Analyzer(v, s) {}
+
+    string analyze() override {
+        selection_sort(values, size);
+
+        int minVal = values[0];
+        int maxVal = values[size - 1];
+
+        double median;
+        if (size % 2 == 0)
+            median = (values[size / 2 - 1] + values[size / 2]) / 2.0;
+        else
+            median = values[size / 2];
+
+        int mode = values[0];
+        int maxCount = 1, currentCount = 1;
+        for (int i = 1; i < size; i++) {
+            if (values[i] == values[i - 1])
+                currentCount++;
+            else
+                currentCount = 1;
+
+            if (currentCount > maxCount) {
+                maxCount = currentCount;
+                mode = values[i];
+            }
+        }
+
+        string result = "Min: " + to_string(minVal) + 
+                        ", Max: " + to_string(maxVal) +
+                        ", Median: " + to_string(median) +
+                        ", Mode: " + to_string(mode);
+        return result;
+    }
+};
+
+// =====================================================
+// FUNCTION DEFINITIONS
+// =====================================================
+void selection_sort(int* values, int size) {
+    for (int i = 0; i < size - 1; i++) {
+        int minIndex = i;
+        for (int j = i + 1; j < size; j++) {
+            if (values[j] < values[minIndex])
+                minIndex = j;
+        }
+        int temp = values[i];
+        values[i] = values[minIndex];
+        values[minIndex] = temp;
+    }
+}
+
+bool binary_search_recursive(int* values, int key, int start, int end) {
+    if (start > end) return false;
+    int mid = (start + end) / 2;
+    if (values[mid] == key)
+        return true;
+    else if (key < values[mid])
+        return binary_search_recursive(values, key, start, mid - 1);
+    else
+        return binary_search_recursive(values, key, mid + 1, end);
+}
+
+bool binary_search(int* values, int key, int size) {
+    return binary_search_recursive(values, key, 0, size - 1);
+}
+
+void createBinaryFile(string filename) {
+    srand(time(0));
+    int size = 100;
+    int* data = new int[size];
+    for (int i = 0; i < size; i++)
+        data[i] = rand() % 1000;
+    writeBinary(filename, data, size);
+    delete[] data;
+}
+
+void writeBinary(string filename, int* values, int length) {
+    ofstream fout(filename.c_str(), ios::binary);
+    fout.write((char*)&length, sizeof(length));
+    fout.write((char*)values, sizeof(int) * length);
+    fout.close();
+}
+
+// =====================================================
+// MAIN DEMO
+// =====================================================
+int main() {
+    string filename = "data.bin";
+    BinaryReader reader(filename);
+    int* data = reader.getValues();
+    int size = reader.getSize();
+
+    cout << "=== Signature Assignment Output ===" << endl;
+
+    DuplicatesAnalyser dup(data, size);
+    cout << dup.analyze() << endl;
+
+    MissingAnalyser miss(data, size);
+    cout << miss.analyze() << endl;
+
+    SearchAnalyser search(data, size);
+    cout << search.analyze() << endl;
+
+    StatisticsAnalyser stats(data, size);
+    cout << stats.analyze() << endl;
+
+    cout << "\nProgram completed successfully." << endl;
+    return 0;
+}
