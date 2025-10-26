@@ -1,0 +1,57 @@
+Assignment 5: Pseudo Code
+
+
+
+1. Create a file with random numbers if it doesn't exist:
+   - Generate 100 random numbers between 0 and 999.
+   - Save these numbers to a binary file.
+
+2. Read the binary file:
+   - Open the file and read how many numbers are stored.
+   - Load all numbers into a list.
+
+3. Define a way to sort numbers using Selection Sort:
+   - For each number in the list:
+     - Find the smallest number from the unsorted part.
+     - Swap it with the current number.
+   - Repeat until the list is sorted.
+
+4. Define a way to search for a number using Binary Search (recursively):
+   - If the search range is invalid, the number is not found.
+   - Find the middle number.
+   - If it matches the search number, return found.
+   - If the search number is smaller, search the left half.
+   - Otherwise, search the right half.
+
+5. Create different analyzers to analyze the data:
+
+   - Duplicate Analyzer:
+     - Sort the list.
+     - Count how many numbers appear more than once.
+
+   - Missing Number Analyzer:
+     - Sort the list.
+     - Count how many numbers are missing between the smallest and largest numbers by checking gaps.
+
+   - Search Analyzer:
+     - Sort the list.
+     - Pick 100 random numbers.
+     - For each random number, use binary search to check if it exists in the list.
+     - Count how many random numbers were found.
+
+   - Statistics Analyzer:
+     - Sort the list.
+     - Find the smallest number.
+     - Find the largest number.
+     - Find the median number (middle value).
+     - Find the mode (most frequently occurring number).
+
+6.  In the main program:
+   - Load the data from the binary file.
+   - If data is missing, show an error.
+   - Use each analyzer to analyze the data.
+   - Print the results of each analysis.
+
+7. End program with success message.
+
+-
